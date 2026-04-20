@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use rosin::{keyboard_types::NamedKey, prelude::*, widgets::*};
+use rosin::{prelude::*, widgets::*};
 
 struct State {
     location: Var<String>,

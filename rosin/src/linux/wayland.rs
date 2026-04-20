@@ -51,6 +51,7 @@ use wayland_protocols::xdg::shell::client::xdg_surface;
 use wayland_protocols::xdg::shell::client::xdg_toplevel::XdgToplevel;
 use wayland_protocols::xdg::shell::client::xdg_wm_base;
 use wayland_protocols::xdg::shell::client::xdg_wm_base::XdgWmBase;
+use crate::prelude::PointerButtons;
 pub(crate) const SRGB_SHADER: &str = r#"
 @vertex
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<f32> {
@@ -94,6 +95,7 @@ pub(crate) struct RosinWaylandState<S: Sync + 'static> {
     pub(crate) fallback_frame: Option<FallbackFrame<RosinWaylandState<S>>>,
     pub(crate) last_surface_id: ObjectId,
     pub(crate) seat: Option<wl_seat::WlSeat>,
+    pub(crate) held_mouse_btns: PointerButtons,
 }
 
 impl<S: Sync + 'static> RosinWaylandState<S> {
@@ -198,7 +200,7 @@ impl<S: Sync + 'static> RosinWaylandState<S> {
                         compilation_options: Default::default(),
                         targets: [Some(wgpu::ColorTargetState {
                             format: cap.formats[0],
-                            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                            blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                             write_mask: wgpu::ColorWrites::ALL,
                         })]
                         .as_slice(),
@@ -416,7 +418,6 @@ impl<S: Sync + 'static> RosinWaylandState<S> {
                 return Ok(());
             }
         }
-        Ok(())
     }
 }
 
@@ -697,6 +698,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                 data.last_mouse_pos = Vec2::new(surface_x, surface_y);
                 let pe = PointerEvent {
                     viewport_pos: Point::new(data.last_mouse_pos.x, data.last_mouse_pos.y),
+					buttons: data.held_mouse_btns,
                     ..Default::default()
                 };
 
@@ -768,11 +770,13 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                 match state {
                     WEnum::Value(wl_pointer::ButtonState::Pressed) => {
                         if !consumed {
+							data.held_mouse_btns.insert(pe.button);
                             data.viewport.queue_pointer_down_event(&pe);
                         }
                     }
                     WEnum::Value(wl_pointer::ButtonState::Released) => {
                         if !consumed {
+							data.held_mouse_btns.remove(pe.button);
                             data.viewport.queue_pointer_up_event(&pe);
                         }
                     }
@@ -900,12 +904,27 @@ impl<S: Sync + 'static> Dispatch<zwp_tablet_seat_v2::ZwpTabletSeatV2, ()> for Ro
     ) {
         match event {
             zwp_tablet_seat_v2::Event::TabletAdded { id: _ } => {}
-            zwp_tablet_seat_v2::Event::ToolAdded { id: _ } => {}
+            zwp_tablet_seat_v2::Event::ToolAdded { id } => {
+                
+            }
             zwp_tablet_seat_v2::Event::PadAdded { id: _ } => {}
             _ => {}
         };
     }
 }
+impl<S: Sync + 'static> Dispatch<zwp_tablet_tool_v2::ZwpTabletToolV2, ()> for RosinWaylandState<S> {
+    fn event(
+        _: &mut RosinWaylandState<S>,
+        _: &zwp_tablet_tool_v2::ZwpTabletToolV2,
+        _: <zwp_tablet_tool_v2::ZwpTabletToolV2 as Proxy>::Event,
+        _: &(),
+        _: &wayland_client::Connection,
+        _: &QueueHandle<RosinWaylandState<S>>,
+    ) {
+    }
+}
+
+
 use crate::desc::WindowDesc;
 
 use std::any::Any;

@@ -5,22 +5,18 @@ use crate::{
     kurbo::{Point, Size},
     prelude::*,
 };
-use pollster::block_on;
 use raw_window_handle::RawDisplayHandle;
 use raw_window_handle::WaylandDisplayHandle;
 use raw_window_handle::WaylandWindowHandle;
 use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle as RWHWindowHandle};
 use rosin_core::parking_lot::RwLock;
 use std::borrow::Borrow;
-use std::ffi::OsStr;
-use std::option;
-use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{any::Any, time::Duration};
 use wayland_client::Proxy;
 
-pub(crate) struct InputHandlerVars {
+pub(crate) struct SharedVars {
     pub(crate) id: Option<NodeId>,
     pub(crate) handler: Option<Box<dyn InputHandler + Send + Sync>>,
     pub(crate) file_dialog_result: Option<FileDialogResponse>,
@@ -29,7 +25,7 @@ pub(crate) struct InputHandlerVars {
 
 pub(crate) struct WindowHandle {
     pub(crate) wayland_handle: Option<Arc<WaylandWindow>>,
-    pub(crate) input_handler: Arc<RwLock<InputHandlerVars>>,
+    pub(crate) input_handler: Arc<RwLock<SharedVars>>,
 }
 
 impl Clone for WindowHandle {
@@ -63,7 +59,7 @@ impl HasDisplayHandle for WindowHandle {
 
 impl WindowHandle {
     pub fn set_input_handler(&self, _id: Option<NodeId>, _handler: Option<Box<dyn InputHandler + Send + Sync>>) {
-        let clone: &RwLock<InputHandlerVars> = self.input_handler.borrow();
+        let clone: &RwLock<SharedVars> = self.input_handler.borrow();
         let mut input_handle = clone.write();
         input_handle.handler = _handler;
         input_handle.id = _id;
@@ -171,7 +167,7 @@ impl WindowHandle {
             return;
         };
         let files = rfd_dialog::open_file(util::dialog_convert_open(options));
-        let clone: &RwLock<InputHandlerVars> = self.input_handler.borrow();
+        let clone: &RwLock<SharedVars> = self.input_handler.borrow();
         let mut input_handle = clone.write();
         input_handle.file_dialog_result = Some(if files.is_some() {
             FileDialogResponse::Opened(rfd_dialog::uris_to_paths(files.unwrap()))
@@ -187,7 +183,7 @@ impl WindowHandle {
         };
         let files = rfd_dialog::save_file(util::dialog_convert_save(options));
 
-        let clone: &RwLock<InputHandlerVars> = self.input_handler.borrow();
+        let clone: &RwLock<SharedVars> = self.input_handler.borrow();
         let mut input_handle = clone.write();
         input_handle.file_dialog_result = Some(if files.is_some() {
             FileDialogResponse::Saved(rfd_dialog::uris_to_paths(files.unwrap())[0].clone())

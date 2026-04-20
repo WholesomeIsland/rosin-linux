@@ -1,6 +1,6 @@
-use std::{ffi::CString, path::PathBuf};
+use std::{ffi::CString};
 
-use crate::{dialog::FileDialogOptions, linux::rfd_dialog::{self, file_dialog::FilePath}, prelude::Modifiers};
+use crate::{dialog::FileDialogOptions, prelude::Modifiers};
 use rosin_core::{
     keyboard_types::{Code, KeyboardEvent, Location},
     prelude::{Key, NamedKey},

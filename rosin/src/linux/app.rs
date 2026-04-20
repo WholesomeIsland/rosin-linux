@@ -55,7 +55,7 @@ impl<S: Sync + 'static> AppLauncher<S> {
         use wayland_client::Proxy;
 
         use crate::linux::csd_frame::frame::FallbackFrame;
-        use crate::linux::{handle::InputHandlerVars, wayland::RosinWaylandState, wayland::create_window_wayland};
+        use crate::linux::{handle::SharedVars, wayland::RosinWaylandState, wayland::create_window_wayland};
 
         let conn = way_conn.unwrap();
         let (globals, event_queue) = wayland_client::globals::registry_queue_init(&conn).unwrap();
@@ -140,7 +140,12 @@ impl<S: Sync + 'static> AppLauncher<S> {
 
         let wh = crate::prelude::WindowHandle(crate::linux::handle::WindowHandle {
             wayland_handle: Some(window),
-            input_handler: std::sync::Arc::new(rosin_core::parking_lot::RwLock::new(InputHandlerVars { id: None, handler: None, file_dialog_result: None, dialog_id: None })),
+            input_handler: std::sync::Arc::new(rosin_core::parking_lot::RwLock::new(SharedVars {
+                id: None,
+                handler: None,
+                file_dialog_result: None,
+                dialog_id: None,
+            })),
         });
         let vello_renderer = {
             let renderer = match vello::Renderer::new(
@@ -185,6 +190,7 @@ impl<S: Sync + 'static> AppLauncher<S> {
             fallback_frame: frame,
             last_surface_id: ObjectId::null(),
             seat: None,
+			held_mouse_btns: PointerButtons::empty()
         };
         use wayland_csd_frame::DecorationsFrame;
         let _ = rosin_window.run_loop(event_queue);
