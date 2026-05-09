@@ -19,7 +19,7 @@ use wayland_client::Proxy;
 pub(crate) struct SharedVars {
     pub(crate) id: Option<NodeId>,
     pub(crate) handler: Option<Box<dyn InputHandler + Send + Sync>>,
-    pub(crate) file_dialog_result: Option<FileDialogResponse>,
+    pub(crate) file_dialog_result: Option<FileDialogResponse>, // this being something is used as a signal to send a dialog event, probably should be different
     pub(crate) dialog_id: Option<NodeId>,
 }
 
@@ -169,7 +169,7 @@ impl WindowHandle {
         let files = rfd_dialog::open_file(util::dialog_convert_open(options));
         let clone: &RwLock<SharedVars> = self.input_handler.borrow();
         let mut input_handle = clone.write();
-        input_handle.file_dialog_result = Some(if files.is_some() {
+        input_handle.file_dialog_result = Some(if files.is_some() && !files.clone().unwrap().is_empty() {
             FileDialogResponse::Opened(rfd_dialog::uris_to_paths(files.unwrap()))
         } else {
             FileDialogResponse::Cancelled
@@ -185,7 +185,7 @@ impl WindowHandle {
 
         let clone: &RwLock<SharedVars> = self.input_handler.borrow();
         let mut input_handle = clone.write();
-        input_handle.file_dialog_result = Some(if files.is_some() {
+        input_handle.file_dialog_result = Some(if files.is_some() && !files.clone().unwrap().is_empty() {
             FileDialogResponse::Saved(rfd_dialog::uris_to_paths(files.unwrap())[0].clone())
         } else {
             FileDialogResponse::Cancelled
