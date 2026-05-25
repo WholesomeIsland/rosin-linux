@@ -52,6 +52,7 @@ impl<S: Sync + 'static> AppLauncher<S> {
     pub fn run(mut self, _state: S, _translation_map: TranslationMap) -> Result<(), LaunchError> {
         self.state = Some(Rc::new(RefCell::new(_state)));
         let way_conn = wayland_client::Connection::connect_to_env();
+        use rosin_core::pointer::PointerType::Pen;
         use wayland_client::Proxy;
 
         use crate::linux::csd_frame::frame::FallbackFrame;
@@ -190,7 +191,15 @@ impl<S: Sync + 'static> AppLauncher<S> {
             fallback_frame: frame,
             last_surface_id: ObjectId::null(),
             seat: None,
-			held_mouse_btns: PointerButtons::empty()
+            held_mouse_btns: PointerButtons::empty(),
+            curr_pen_event: PointerEvent {
+                button: PointerButton::None,
+                buttons: PointerButtons::empty(),
+                count: 0,
+                ..PointerEvent::default()
+            },
+            pen_down: false,
+            pen_up: false
         };
         use wayland_csd_frame::DecorationsFrame;
         let _ = rosin_window.run_loop(event_queue);

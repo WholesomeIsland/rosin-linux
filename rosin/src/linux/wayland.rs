@@ -11,6 +11,7 @@ use crate::prelude::OverlayPipeline;
 use crate::prelude::WgpuCtx;
 use crate::prelude::WgpuFn;
 use crate::wgpu::TextureViewDescriptor;
+use rosin_core::pointer::PointerType::Pen;
 use rosin_core::prelude::PointerButton;
 use rosin_core::prelude::PointerEvent;
 use rosin_core::viewport::Viewport;
@@ -18,6 +19,10 @@ use rosin_core::{
     vello::{self},
     wgpu,
 };
+use wayland_client::event_created_child;
+use wayland_protocols::wp::tablet::zv2::client::zwp_tablet_pad_group_v2;
+use wayland_protocols::wp::tablet::zv2::client::zwp_tablet_pad_v2;
+use wayland_protocols::wp::tablet::zv2::client::zwp_tablet_v2;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::num::NonZero;
@@ -77,7 +82,6 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
     return gamma(textureSample(t_diffuse, s_diffuse, uv));
 }
 "#;
-
 pub(crate) struct RosinWaylandState<S: Sync + 'static> {
     pub(crate) exit: bool,
     pub(crate) width: u32,
@@ -96,6 +100,9 @@ pub(crate) struct RosinWaylandState<S: Sync + 'static> {
     pub(crate) last_surface_id: ObjectId,
     pub(crate) seat: Option<wl_seat::WlSeat>,
     pub(crate) held_mouse_btns: PointerButtons,
+    pub(crate) curr_pen_event: PointerEvent,
+    pub(crate) pen_down: bool,
+    pub(crate) pen_up: bool
 }
 
 impl<S: Sync + 'static> RosinWaylandState<S> {
@@ -902,6 +909,7 @@ impl<S: Sync + 'static> Dispatch<zwp_tablet_seat_v2::ZwpTabletSeatV2, ()> for Ro
         _: &wayland_client::Connection,
         _: &QueueHandle<RosinWaylandState<S>>,
     ) {
+        println!("{:?}", event);
         match event {
             zwp_tablet_seat_v2::Event::TabletAdded { id: _ } => {}
             zwp_tablet_seat_v2::Event::ToolAdded { id } => {
@@ -911,16 +919,100 @@ impl<S: Sync + 'static> Dispatch<zwp_tablet_seat_v2::ZwpTabletSeatV2, ()> for Ro
             _ => {}
         };
     }
+    event_created_child!(RosinWaylandState<S>, zwp_tablet_seat_v2::ZwpTabletSeatV2, [
+        zwp_tablet_seat_v2::EVT_PAD_ADDED_OPCODE => (zwp_tablet_pad_v2::ZwpTabletPadV2, ()),
+        zwp_tablet_seat_v2::EVT_TABLET_ADDED_OPCODE => (zwp_tablet_v2::ZwpTabletV2, ()),
+        zwp_tablet_seat_v2::EVT_TOOL_ADDED_OPCODE => (zwp_tablet_tool_v2::ZwpTabletToolV2, ()),
+    ]);
+    
+}
+
+impl<S: Sync + 'static> Dispatch<wayland_protocols::wp::tablet::zv2::client::zwp_tablet_pad_v2::ZwpTabletPadV2, ()> for RosinWaylandState<S> {
+    fn event(
+        state: &mut Self,
+        proxy: &wayland_protocols::wp::tablet::zv2::client::zwp_tablet_pad_v2::ZwpTabletPadV2,
+        event: <wayland_protocols::wp::tablet::zv2::client::zwp_tablet_pad_v2::ZwpTabletPadV2 as Proxy>::Event,
+        data: &(),
+        conn: &Connection,
+        qhandle: &QueueHandle<Self>,
+    ) {
+    }
+    event_created_child!(RosinWaylandState<S>, zwp_tablet_pad_v2::ZwpTabletPadV2, [
+        zwp_tablet_pad_v2::EVT_GROUP_OPCODE => (zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2, ()),
+    ]);
+}
+impl<S: Sync + 'static> Dispatch<zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2, ()> for RosinWaylandState<S> {
+    fn event(
+        state: &mut Self,
+        proxy: &zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
+        event: <zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2 as Proxy>::Event,
+        data: &(),
+        conn: &Connection,
+        qhandle: &QueueHandle<Self>,
+    )
+    {
+        
+    }
+}
+
+impl<S: Sync + 'static> Dispatch<wayland_protocols::wp::tablet::zv2::client::zwp_tablet_v2::ZwpTabletV2, ()> for RosinWaylandState<S> {
+    fn event(
+        state: &mut Self,
+        proxy: &wayland_protocols::wp::tablet::zv2::client::zwp_tablet_v2::ZwpTabletV2,
+        event: <wayland_protocols::wp::tablet::zv2::client::zwp_tablet_v2::ZwpTabletV2 as Proxy>::Event,
+        data: &(),
+        conn: &Connection,
+        qhandle: &QueueHandle<Self>,
+    ) {
+    }
+    event_created_child!(RosinWaylandState<S>, zwp_tablet_v2::ZwpTabletV2, [
+        
+    ]);
 }
 impl<S: Sync + 'static> Dispatch<zwp_tablet_tool_v2::ZwpTabletToolV2, ()> for RosinWaylandState<S> {
     fn event(
-        _: &mut RosinWaylandState<S>,
+        state: &mut RosinWaylandState<S>,
         _: &zwp_tablet_tool_v2::ZwpTabletToolV2,
-        _: <zwp_tablet_tool_v2::ZwpTabletToolV2 as Proxy>::Event,
+        event: <zwp_tablet_tool_v2::ZwpTabletToolV2 as Proxy>::Event,
         _: &(),
         _: &wayland_client::Connection,
         _: &QueueHandle<RosinWaylandState<S>>,
     ) {
+        match event {
+            zwp_tablet_tool_v2::Event::Motion {x, y} => {
+                state.curr_pen_event.viewport_pos = Point::new(x, y);
+            }
+            zwp_tablet_tool_v2::Event::Pressure {pressure} => {
+                state.curr_pen_event.pressure = pressure as f32 / 65535 as f32;
+            }
+            zwp_tablet_tool_v2::Event::Distance {distance} => {
+            }
+            zwp_tablet_tool_v2::Event::Tilt {tilt_x, tilt_y} => {
+                state.curr_pen_event.tilt = Vec2::new(tilt_x, tilt_y);
+            }
+            zwp_tablet_tool_v2::Event::Down {serial} => {
+                state.curr_pen_event.buttons = PointerButtons::empty().with(PointerButton::Primary);
+                state.pen_down = true;
+            }
+            zwp_tablet_tool_v2::Event::Up => {
+                state.curr_pen_event.buttons = PointerButtons::empty();
+                state.pen_up = true;
+            }
+            zwp_tablet_tool_v2::Event::Frame {time} => {
+                if state.pen_down {
+                    state.viewport.queue_pointer_down_event(&state.curr_pen_event);
+                    state.pen_down = false;
+                } 
+                if state.pen_up {
+                    state.viewport.queue_pointer_up_event(&state.curr_pen_event);
+                    state.pen_up = false;
+                }
+                if !state.pen_up && !state.pen_down {
+                    state.viewport.queue_pointer_move_event(&state.curr_pen_event);
+                }
+            }
+            _ => {}
+        }
     }
 }
 
