@@ -147,6 +147,7 @@ impl<S: Sync + 'static> AppLauncher<S> {
                 file_dialog_result: None,
                 dialog_id: None,
             })),
+            last_pointer_serial: 0,
         });
         let vello_renderer = {
             let renderer = match vello::Renderer::new(
