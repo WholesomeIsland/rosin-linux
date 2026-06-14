@@ -65,8 +65,8 @@ impl<S: Sync + 'static> AppLauncher<S> {
             let qh = event_queue.handle();
             let mut window = create_window_wayland(&desc, &globals, &qh);
             let raw_display_handle = RawDisplayHandle::Wayland(WaylandDisplayHandle::new(NonNull::new(conn.backend().display_ptr() as *mut _).unwrap()));
-            let raw_window_handle = RawWindowHandle::Wayland(WaylandWindowHandle::new(NonNull::new(window.surface.id().as_ptr() as *mut _).unwrap()));
-            std::sync::Arc::<WaylandWindow>::get_mut(&mut window).unwrap().conn = Some(conn.clone());
+            let raw_window_handle = RawWindowHandle::Wayland(WaylandWindowHandle::new(NonNull::new(window.read().surface.id().as_ptr() as *mut _).unwrap()));
+            std::sync::Arc::<rosin_core::parking_lot::RwLock<WaylandWindow>>::get_mut(&mut window).unwrap().write().conn = Some(conn.clone());
             let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
                 backends: self.wgpu_config.backends,
                 ..Default::default()
@@ -166,7 +166,7 @@ impl<S: Sync + 'static> AppLauncher<S> {
             };
             use crate::kurbo::Vec2;
 
-            let mut frame = if wh.0.wayland_handle.as_ref().unwrap().toplevel_decoration.is_none() {
+            let mut frame = if wh.0.wayland_handle.as_ref().unwrap().read().toplevel_decoration.is_none() {
                 Some(FallbackFrame::new(wh.0.wayland_handle.as_ref().unwrap().as_ref(), qh).expect("msg"))
             } else {
                 None

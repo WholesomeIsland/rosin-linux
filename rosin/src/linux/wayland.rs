@@ -626,7 +626,7 @@ impl<S: Sync + 'static> Dispatch<xdg_surface::XdgSurface, ()> for RosinWaylandSt
         if let xdg_surface::Event::Configure { serial, .. } = event {
             xdg_surface.ack_configure(serial);
             data.configure();
-            data.window_handle.0.wayland_handle.clone().unwrap().surface.commit();
+            data.window_handle.0.wayland_handle.clone().unwrap().read().surface.commit();
         }
     }
 }
@@ -662,16 +662,10 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
         _conn: &Connection,
         qh: &QueueHandle<RosinWaylandState<S>>,
     ) {
-        if data.window_handle.0.wayland_handle.as_mut().unwrap().pointer_shape.is_none() {
-            std::sync::Arc::<WaylandWindow>::get_mut(data.window_handle.0.wayland_handle.as_mut().unwrap())
-                .unwrap()
-                .pointer_shape = Some(
-                data.window_handle
-                    .0
-                    .wayland_handle
-                    .as_mut()
-                    .unwrap()
-                    .cursor_shape_manager
+        if data.window_handle.0.wayland_handle.as_mut().unwrap().write().pointer_shape.is_none() {
+                let mut write = data.window_handle.0.wayland_handle.as_ref().unwrap().write();
+                write
+                .pointer_shape = Some(write.cursor_shape_manager
                     .as_ref()
                     .unwrap()
                     .get_pointer(pointer, qh, ()),
@@ -693,9 +687,9 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                         .click_point_moved(Duration::new(0, 0), &data.last_surface_id, surface_x, surface_y);
                 }
                 //data.viewport.queue_pointer_move_event(&pe);
-                std::sync::Arc::<WaylandWindow>::get_mut(data.window_handle.0.wayland_handle.as_mut().unwrap())
-                    .unwrap()
-                    .last_pointer_serial = serial;
+                let mut write = data.window_handle.0.wayland_handle.as_ref().unwrap().write();
+                    write.last_pointer_serial = serial;
+                    drop(write);
             }
             wl_pointer::Event::Leave { surface: _, serial: _ } => {}
             wl_pointer::Event::Motion { time: _, surface_x, surface_y } => {
@@ -751,7 +745,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                             data.window_handle.minimize();
                         }
                         Some(FrameAction::Resize(edge)) => {
-                            data.window_handle.0.wayland_handle.as_mut().unwrap().xdg_toplevel.resize(
+                            data.window_handle.0.wayland_handle.as_mut().unwrap().read().xdg_toplevel.resize(
                                 data.seat.as_ref().unwrap(),
                                 serial,
                                 csd_resize_to_wayland(edge),
@@ -763,7 +757,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                                 .wayland_handle
                                 .as_mut()
                                 .unwrap()
-                                .xdg_toplevel
+                                .read().xdg_toplevel
                                 ._move(data.seat.as_ref().unwrap(), serial);
                         }
                         _ => {
@@ -1045,7 +1039,7 @@ pub(crate) fn create_window_wayland<S: Any + Sync + 'static>(
     _desc: &WindowDesc<S>,
     globals: &GlobalList,
     qh: &QueueHandle<RosinWaylandState<S>>,
-) -> Arc<WaylandWindow> {
+) -> Arc<rosin_core::parking_lot::RwLock<WaylandWindow>> {
     let wl_compositor: wl_compositor::WlCompositor = globals.bind(qh, 1..=6, ()).unwrap();
     let surface = wl_compositor.create_surface(qh, ());
 
@@ -1055,7 +1049,7 @@ pub(crate) fn create_window_wayland<S: Any + Sync + 'static>(
 
     let freeze = qh.freeze();
 
-    let window = Arc::new_cyclic(|_weak| {
+    let window = Arc::new_cyclic(|_weak| rosin_core::parking_lot::RwLock::new({
         let xdg_surface = xdg_wm_base.get_xdg_surface(&surface, qh, ());
         let xdg_toplevel = xdg_surface.get_toplevel(qh, ());
         let xdg_decoration_manager: Result<zxdg_decoration_manager_v1::ZxdgDecorationManagerV1, BindError> = globals.bind(qh, 1..=1, ());
@@ -1087,7 +1081,7 @@ pub(crate) fn create_window_wayland<S: Any + Sync + 'static>(
             pointer_shape: None,
             last_pointer_serial: 0,
         }
-    });
+    }));
     // Explicitly drop the queue freeze to allow the queue to resume work.
     drop(freeze);
 
