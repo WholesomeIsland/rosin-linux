@@ -88,11 +88,12 @@ impl<State> FallbackFrame<State>
 where
     State: Dispatch<WlSurface, ()> + Dispatch<WlSubsurface, ()> + 'static,
 {
-    pub fn new(window: &WaylandWindow, queue_handle: QueueHandle<State>) -> Result<Self, Box<dyn Error>> {
-        let parent = window.surface.clone();
-        let shm = window.shm.as_ref().unwrap();
-        let compositor = window.compositor.clone();
-        let subcompositor = window.subcompositor.clone();
+    pub fn new(window: &rosin_core::parking_lot::RwLock<WaylandWindow>, queue_handle: QueueHandle<State>) -> Result<Self, Box<dyn Error>> {
+        let parent = window.read().surface.clone();
+        let binding = window.read();
+        let shm = binding.shm.as_ref().unwrap();
+        let compositor = window.read().compositor.clone();
+        let subcompositor = window.read().subcompositor.clone();
         let pool = SlotPool::new(1, shm).expect("msg");
         let render_data = Some(FrameRenderData::new(&parent, &subcompositor, &compositor, &queue_handle));
 

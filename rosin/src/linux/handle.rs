@@ -24,7 +24,7 @@ pub(crate) struct SharedVars {
 }
 
 pub(crate) struct WindowHandle {
-    pub(crate) wayland_handle: Option<Arc<WaylandWindow>>,
+    pub(crate) wayland_handle: Option<Arc<rosin_core::parking_lot::RwLock<WaylandWindow>>>,
     pub(crate) input_handler: Arc<RwLock<SharedVars>>,
     pub(crate) last_pointer_serial: u32,
 }
@@ -43,7 +43,7 @@ impl HasWindowHandle for WindowHandle {
     fn window_handle(&self) -> Result<RWHWindowHandle<'_>, HandleError> {
         unsafe {
             Ok(RWHWindowHandle::borrow_raw(raw_window_handle::RawWindowHandle::Wayland(WaylandWindowHandle::new(
-                NonNull::new(self.wayland_handle.as_ref().unwrap().surface.id().as_ptr() as *mut _).unwrap(),
+                NonNull::new(self.wayland_handle.as_ref().unwrap().read().surface.id().as_ptr() as *mut _).unwrap(),
             ))))
         }
     }
@@ -53,7 +53,7 @@ impl HasDisplayHandle for WindowHandle {
     fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
         unsafe {
             Ok(DisplayHandle::borrow_raw(RawDisplayHandle::Wayland(WaylandDisplayHandle::new(
-                NonNull::new(self.wayland_handle.as_ref().unwrap().conn.as_ref().unwrap().backend().display_ptr() as *mut _).unwrap(),
+                NonNull::new(self.wayland_handle.as_ref().unwrap().read().conn.as_ref().unwrap().backend().display_ptr() as *mut _).unwrap(),
             ))))
         }
     }
@@ -104,14 +104,14 @@ impl WindowHandle {
     pub fn set_max_size(&self, size: Option<impl Into<Size>>) {
         if size.is_some() {
             let s = size.unwrap().into();
-            self.wayland_handle.clone().unwrap().xdg_toplevel.set_max_size(s.width as i32, s.height as i32);
+            self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_max_size(s.width as i32, s.height as i32);
         }
     }
 
     pub fn set_min_size(&self, size: Option<impl Into<Size>>) {
         if size.is_some() {
             let s = size.unwrap().into();
-            self.wayland_handle.clone().unwrap().xdg_toplevel.set_min_size(s.width as i32, s.height as i32);
+            self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_min_size(s.width as i32, s.height as i32);
         }
     }
 
@@ -122,26 +122,26 @@ impl WindowHandle {
     pub fn set_size(&self, _size: impl Into<Size>) {}
 
     pub fn set_title(&self, title: impl Into<String>) {
-        self.wayland_handle.clone().unwrap().xdg_toplevel.set_title(title.into());
+        self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_title(title.into());
     }
 
     pub fn minimize(&self) {
-        self.wayland_handle.clone().unwrap().xdg_toplevel.set_minimized();
+        self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_minimized();
     }
 
     pub fn maximize(&self) {
-        self.wayland_handle.clone().unwrap().xdg_toplevel.set_maximized();
+        self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_maximized();
     }
 
     pub fn restore(&self) {
-        self.wayland_handle.clone().unwrap().xdg_toplevel.unset_maximized();
+        self.wayland_handle.clone().unwrap().read().xdg_toplevel.unset_maximized();
     }
 
     pub fn set_cursor(&self, cursor: CursorType) {
         self.wayland_handle
             .as_ref()
             .unwrap()
-            .pointer_shape
+            .read().pointer_shape
             .as_ref()
             .unwrap()
             .set_shape(self.last_pointer_serial, cursor_icon_to_shape(cursor));
