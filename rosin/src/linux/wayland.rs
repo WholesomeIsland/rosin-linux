@@ -686,10 +686,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                         .unwrap()
                         .click_point_moved(Duration::new(0, 0), &data.last_surface_id, surface_x, surface_y);
                 }
-                //data.viewport.queue_pointer_move_event(&pe);
-                let mut write = data.window_handle.0.wayland_handle.as_ref().unwrap().write();
-                    write.last_pointer_serial = serial;
-                    drop(write);
+                data.window_handle.0.last_pointer_serial = serial;
             }
             wl_pointer::Event::Leave { surface: _, serial: _ } => {}
             wl_pointer::Event::Motion { time: _, surface_x, surface_y } => {
@@ -1032,7 +1029,6 @@ pub struct WaylandWindow {
     pub(crate) conn: Option<Connection>,
     pub(crate) cursor_shape_manager: Option<wp_cursor_shape_manager_v1::WpCursorShapeManagerV1>,
     pub(crate) pointer_shape: Option<WpCursorShapeDeviceV1>,
-    pub(crate) last_pointer_serial: u32,
 }
 
 pub(crate) fn create_window_wayland<S: Any + Sync + 'static>(
@@ -1079,7 +1075,6 @@ pub(crate) fn create_window_wayland<S: Any + Sync + 'static>(
             conn: None,
             cursor_shape_manager: Some(globals.bind(qh, 1..=1, ()).unwrap()),
             pointer_shape: None,
-            last_pointer_serial: 0,
         }
     }));
     // Explicitly drop the queue freeze to allow the queue to resume work.

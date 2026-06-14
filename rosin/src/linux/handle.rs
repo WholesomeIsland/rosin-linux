@@ -26,6 +26,7 @@ pub(crate) struct SharedVars {
 pub(crate) struct WindowHandle {
     pub(crate) wayland_handle: Option<Arc<rosin_core::parking_lot::RwLock<WaylandWindow>>>,
     pub(crate) input_handler: Arc<RwLock<SharedVars>>,
+    pub(crate) last_pointer_serial: u32,
 }
 
 impl Clone for WindowHandle {
@@ -33,6 +34,7 @@ impl Clone for WindowHandle {
         Self {
             wayland_handle: self.wayland_handle.clone(),
             input_handler: self.input_handler.clone(),
+            last_pointer_serial: 0,
         }
     }
 }
@@ -142,7 +144,7 @@ impl WindowHandle {
             .read().pointer_shape
             .as_ref()
             .unwrap()
-            .set_shape(self.wayland_handle.as_ref().unwrap().read().last_pointer_serial, cursor_icon_to_shape(cursor));
+            .set_shape(self.last_pointer_serial, cursor_icon_to_shape(cursor));
     }
 
     pub fn hide_cursor(&self) {}

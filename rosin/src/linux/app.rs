@@ -77,6 +77,49 @@ impl<S: Sync + 'static> AppLauncher<S> {
                     force_fallback_adapter: false,
                     compatible_surface: None,
                 })
+                .unwrap()
+        };
+        let vello_texture = {
+            let view_formats = [];
+            gpu_ctx.device.create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: desc.size.width as u32,
+                    height: desc.size.height as u32,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: view_formats.as_slice(),
+            })
+        };
+        let viewport: Viewport<S, crate::prelude::WindowHandle> =
+            Viewport::new(desc.viewfn.func, desc.size, rosin_core::kurbo::Vec2 { x: 1.0f64, y: 1.0f64 }, _translation_map);
+
+        let wh = crate::prelude::WindowHandle(crate::linux::handle::WindowHandle {
+            wayland_handle: Some(window),
+            input_handler: std::sync::Arc::new(rosin_core::parking_lot::RwLock::new(SharedVars {
+                id: None,
+                handler: None,
+                file_dialog_result: None,
+                dialog_id: None,
+            })),
+            last_pointer_serial: 0,
+        });
+        let vello_renderer = {
+            let renderer = match vello::Renderer::new(
+                &gpu_ctx.device,
+                vello::RendererOptions {
+                    use_cpu: false,
+                    antialiasing_support: AaSupport::all(),
+                    num_init_threads: None,
+                    pipeline_cache: None,
+                },
+            ) {
+                Ok(r) => r,
                 .block_on()
             {
                 Ok(adapter) => adapter,
