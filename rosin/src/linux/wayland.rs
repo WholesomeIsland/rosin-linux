@@ -102,7 +102,7 @@ pub(crate) struct RosinWaylandState<S: Sync + 'static> {
     pub(crate) held_mouse_btns: PointerButtons,
     pub(crate) curr_pen_event: PointerEvent,
     pub(crate) pen_down: bool,
-    pub(crate) pen_up: bool
+    pub(crate) pen_up: bool,
 }
 
 impl<S: Sync + 'static> RosinWaylandState<S> {
@@ -410,9 +410,9 @@ impl<S: Sync + 'static> RosinWaylandState<S> {
                 .resize(NonZero::new(self.width).unwrap(), NonZero::new(self.height).unwrap());
         }
     }
-    pub fn run_loop(&mut self, mut event_queue: EventQueue<RosinWaylandState<S>>) -> Result<(), ()> {
-        loop {
+    pub fn run_loop(&mut self, event_queue: &mut EventQueue<RosinWaylandState<S>>) -> Result<(), ()> {
             event_queue.dispatch_pending(self).unwrap();
+            
             self.draw();
             let mut input_handle = self.window_handle.0.input_handler.write();
             if input_handle.file_dialog_result.is_some() {
@@ -421,10 +421,7 @@ impl<S: Sync + 'static> RosinWaylandState<S> {
                 input_handle.dialog_id = None;
                 
             }
-            if self.exit {
-                return Ok(());
-            }
-        }
+        Ok(())
     }
 }
 
