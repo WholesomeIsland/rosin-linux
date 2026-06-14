@@ -662,7 +662,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
         _conn: &Connection,
         qh: &QueueHandle<RosinWaylandState<S>>,
     ) {
-        if data.window_handle.0.wayland_handle.as_mut().unwrap().write().pointer_shape.is_none() {
+        if data.window_handle.0.wayland_handle.as_ref().unwrap().write().pointer_shape.is_none() {
                 let mut write = data.window_handle.0.wayland_handle.as_ref().unwrap().write();
                 write
                 .pointer_shape = Some(write.cursor_shape_manager
@@ -745,7 +745,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                             data.window_handle.minimize();
                         }
                         Some(FrameAction::Resize(edge)) => {
-                            data.window_handle.0.wayland_handle.as_mut().unwrap().read().xdg_toplevel.resize(
+                            data.window_handle.0.wayland_handle.as_ref().unwrap().read().xdg_toplevel.resize(
                                 data.seat.as_ref().unwrap(),
                                 serial,
                                 csd_resize_to_wayland(edge),
@@ -755,7 +755,7 @@ impl<S: Sync + 'static> Dispatch<WlPointer, ()> for RosinWaylandState<S> {
                             data.window_handle
                                 .0
                                 .wayland_handle
-                                .as_mut()
+                                .as_ref()
                                 .unwrap()
                                 .read().xdg_toplevel
                                 ._move(data.seat.as_ref().unwrap(), serial);
