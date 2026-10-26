@@ -1,4 +1,4 @@
-use crate::linux::util::{cursor_icon_to_shape};
+use crate::linux::util::cursor_icon_to_shape;
 use crate::linux::wayland::WaylandWindow;
 use crate::linux::{rfd_dialog, util};
 use crate::{
@@ -104,14 +104,24 @@ impl WindowHandle {
     pub fn set_max_size(&self, size: Option<impl Into<Size>>) {
         if size.is_some() {
             let s = size.unwrap().into();
-            self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_max_size(s.width as i32, s.height as i32);
+            self.wayland_handle
+                .clone()
+                .unwrap()
+                .read()
+                .xdg_toplevel
+                .set_max_size(s.width as i32, s.height as i32);
         }
     }
 
     pub fn set_min_size(&self, size: Option<impl Into<Size>>) {
         if size.is_some() {
             let s = size.unwrap().into();
-            self.wayland_handle.clone().unwrap().read().xdg_toplevel.set_min_size(s.width as i32, s.height as i32);
+            self.wayland_handle
+                .clone()
+                .unwrap()
+                .read()
+                .xdg_toplevel
+                .set_min_size(s.width as i32, s.height as i32);
         }
     }
 
@@ -141,7 +151,8 @@ impl WindowHandle {
         self.wayland_handle
             .as_ref()
             .unwrap()
-            .read().pointer_shape
+            .read()
+            .pointer_shape
             .as_ref()
             .unwrap()
             .set_shape(self.last_pointer_serial, cursor_icon_to_shape(cursor));
@@ -151,10 +162,30 @@ impl WindowHandle {
 
     pub fn unhide_cursor(&self) {}
 
-    pub fn set_clipboard_text(&self, _text: &str) {}
+    pub fn set_clipboard_text(&self, text: &str) {
+        use wl_clipboard_rs::copy::{MimeType, Options, Source};
+
+        let opts = Options::new();
+        let _ = opts.copy(Source::Bytes(text.to_string().into_bytes().into()), MimeType::Autodetect);
+    }
 
     pub fn get_clipboard_text(&self) -> Option<String> {
-        None
+        use std::io::Read;
+        use wl_clipboard_rs::paste::{ClipboardType, Error, MimeType, Seat, get_contents};
+        let retval: Option<String> = None;
+        let result = get_contents(ClipboardType::Regular, Seat::Unspecified, MimeType::Text);
+        match result {
+            Ok((mut pipe, _)) => {
+                let mut contents = vec![];
+                pipe.read_to_end(&mut contents).ok()?;
+                Some(String::from_utf8_lossy(&contents));
+            }
+
+            Err(Error::NoSeats) | Err(Error::ClipboardEmpty) | Err(Error::NoMimeType) => {}
+
+            Err(err) => {}
+        }
+        retval
     }
     // TODO: make safer?
     pub fn open_url(&self, url: &str) {

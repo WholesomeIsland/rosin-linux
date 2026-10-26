@@ -14,6 +14,7 @@ impl State {
 fn main_view(state: &State, ui: &mut Ui<State, WindowHandle>) {
     ui.node().id(id!()).style_sheet(&state.style).classes("root").children(|ui| {
         label(ui, id!(), "Window 1");
+    }).event(On::WindowClose, |s, ctx| {
     });
 }
 

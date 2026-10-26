@@ -44,6 +44,7 @@ xkbcommon = "0.9.0"
 wayland-csd-frame = "0.3.0"
 log = "0.4"
 percent-encoding = "2.3.2"
+wl-clipboard-rs = "0.9.5"
 
 [features]
 default = ["system_fonts"]

@@ -59,9 +59,9 @@ impl<S: Sync + 'static> AppLauncher<S> {
 
         let way_conn = wayland_client::Connection::connect_to_env();
         let conn = way_conn.unwrap();
-        let (globals, mut event_queue) = wayland_client::globals::registry_queue_init::<RosinWaylandState<S>>(&conn).unwrap();
+        let (globals, _event_queue) = wayland_client::globals::registry_queue_init::<RosinWaylandState<S>>(&conn).unwrap();
         for desc in self.windows {
-            let mut event_queue = conn.new_event_queue();
+            let event_queue = conn.new_event_queue();
             let qh = event_queue.handle();
 
             let mut window = create_window_wayland(&desc, &globals, &qh);
@@ -210,12 +210,14 @@ impl<S: Sync + 'static> AppLauncher<S> {
         }
 
         loop {
+            let mut should_exit = false;
             for (state, event_queue) in &mut wayland_windows {
                 event_queue.dispatch_pending(state).unwrap();
-                state.draw();
+                let _ = state.run_loop();
 
                 if state.exit {
-                    // Mark this window for removal or shut down the app.
+                    state.viewport.queue_close_event();
+                    return Ok(())
                 }
             }
         }

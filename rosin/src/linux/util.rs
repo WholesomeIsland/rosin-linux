@@ -467,7 +467,7 @@ pub fn dialog_convert_open(opt: FileDialogOptions) -> file_dialog::OpenFileOptio
     }
 }
 
-pub fn dialog_convert_save(opt: FileDialogOptions) -> file_dialog::SaveFileOptions {
+pub fn dialog_convert_save(_opt: FileDialogOptions) -> file_dialog::SaveFileOptions {
     file_dialog::SaveFileOptions {
         parent_window: CString::new("").unwrap(),
         title: CString::new("").unwrap(),
